@@ -31,7 +31,6 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -285,6 +284,7 @@ public class ConnectionManager implements Runnable
 			httpResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
 			return true;
 		}
+		/* Tolerate resends*/
 		Response r = boshSession.getBoshResponse(requestID);
 		if (r != null)
 		{ // re-send
@@ -292,6 +292,13 @@ public class ConnectionManager implements Runnable
 			r.setAborted(true);
 			send(httpResponse, r, boshSession);
 			return true;
+		}
+		if(requestID< boshSession.getLastRID()) {
+			AppLogger.info("Less than last processed rid :" + requestID+" < "+boshSession.getLastRID());
+			httpResponse.sendError(HttpServletResponse.SC_NOT_FOUND);
+			closeSession(boshSession);
+			return true;
+			
 		}
 		if (!boshSession.checkValidRID(requestID))
 		{
@@ -311,7 +318,6 @@ public class ConnectionManager implements Runnable
 			return true;
 		}
 		return false;
-
 	}
 	private void createStream(NamedNodeMap attribs, BOSHSession session, HttpServletResponse httpResponse, Request request, Response boshResponse) throws IOException
 	{
@@ -493,23 +499,25 @@ public class ConnectionManager implements Runnable
 	 */
 	public void send(HttpServletResponse httpResponse, Response boshResponse, BOSHSession session)
 	{
-		synchronized (boshResponse) {
-			try
+		try
+		{
+			String toClient= boshResponse.getResponseXML();
+			httpResponse.setContentType(boshResponse.getContentType());
+			httpResponse.getWriter().print(toClient);
+			boshResponse.setStatus(Response.STATUS_DONE);
+			httpResponse.getWriter().flush();
+			AppLogger.info("sent response for "+boshResponse.getRID()+" body:"+boshResponse.getResponseXML());
+			if(session != null)
 			{
-				String toClient= boshResponse.getResponseXML();
-				httpResponse.setContentType(boshResponse.getContentType());
-				httpResponse.getWriter().print(toClient);
-				boshResponse.setStatus(Response.STATUS_DONE);
-				if(session != null)
-				{
-					session.setLastRID(boshResponse.getRID());
-					session.removeResponse(boshResponse);
-				}
-				httpResponse.getWriter().flush();
-			} catch (Exception e)
-			{
-				Logger.getLogger(getClass()).error(e,e);
+				session.setLastRID(boshResponse.getRID());
+				session.removeResponse(boshResponse);
 			}
+		} catch (Exception e)
+		{
+			if(session.getLastRID()<boshResponse.getRID()) {
+				session.setLastRID(boshResponse.getRID());
+			}
+			AppLogger.error(e,e);
 		}
 	}
 
