@@ -307,6 +307,9 @@ public class BOSHSession
 			{
 				break;
 			}
+			if(response.isAborted()) {
+				break;
+			}
 		}
 		if(dispatchQ.size()>0) {
 			NodeList message = dispatchQ.poll();
