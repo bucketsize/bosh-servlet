@@ -34,7 +34,6 @@ public class Utils
 	private static TransformerFactory tff = TransformerFactory.newInstance();
 	public static String serialize(NodeList nl)
 	{
-		String out = "";
 		StreamResult strResult = new StreamResult();
 		strResult.setWriter(new StringWriter());
 		try 
@@ -44,15 +43,13 @@ public class Utils
 			for (int i = 0; i < nl.getLength(); i++) 
 			{
 				tf.transform(new DOMSource(nl.item(i)), strResult);
-				String tStr = strResult.getWriter().toString();
-				out += tStr;
 				strResult.getWriter().flush();
 			}
 		} catch (Exception e) 
 		{
 			AppLogger.info("XML.toString(Document): ");
 		}
-		return out;
+		return strResult.getWriter().toString();
 	}
 	public static String createRandomID(int length)
 	{
